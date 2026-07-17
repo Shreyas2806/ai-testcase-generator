@@ -41,7 +41,20 @@ def _classify_block_type(
     if not text:
         return "unknown"
 
-    # -- List detection (highest priority) --
+    # -- 1. Size-based classification (check headings first) --
+    if dominant_size > 0:
+        ratio = font_size / dominant_size
+        if ratio >= 1.4:  # Ratio threshold for main headings
+            return "heading"
+        if ratio >= 1.15: # Ratio threshold for subheadings
+            return "subheading"
+
+    # -- 2. Bold text at body size = treat as subheading --
+    is_bold = bool(font_flags & 16)
+    if is_bold and font_size >= dominant_size:
+        return "subheading"
+
+    # -- 3. List detection (lower priority for normal text/lists) --
     # Check first character for bullet symbols
     first_char = text.lstrip()[0] if text.lstrip() else ""
     if first_char in _BULLET_CHARS:
@@ -56,19 +69,6 @@ def _classify_block_type(
             or (prefix[0] == "(" and prefix[1].isdigit())
         ):
             return "list"
-
-    # -- Size-based classification --
-    if dominant_size > 0:
-        ratio = font_size / dominant_size
-        if ratio >= 1.5:
-            return "heading"
-        if ratio >= 1.2:
-            return "subheading"
-
-    # -- Bold text at body size = treat as subheading --
-    is_bold = bool(font_flags & 16)
-    if is_bold and font_size >= dominant_size:
-        return "subheading"
 
     return "paragraph"
 

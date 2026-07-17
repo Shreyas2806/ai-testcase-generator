@@ -233,6 +233,15 @@ class HierarchyBuilder:
 # Pretty-printer (for debugging and testing)
 # ---------------------------------------------------------------------------
 
+def _safe_print(text: str) -> None:
+    import sys
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        encoding = sys.stdout.encoding or "utf-8"
+        print(text.encode(encoding, errors="replace").decode(encoding))
+
+
 def pretty_print(nodes: list[Node], indent: int = 0) -> None:
     """
     Recursively print the tree with indentation reflecting depth.
@@ -247,11 +256,11 @@ def pretty_print(nodes: list[Node], indent: int = 0) -> None:
     prefix = "   " * indent
     for node in nodes:
         connector = "|-- " if indent > 0 else ""
-        print(f"{prefix}{connector}[L{node.level}] {node.heading}  "
-              f"(p.{node.page}, {node.font_size}pt)")
+        _safe_print(f"{prefix}{connector}[L{node.level}] {node.heading}  "
+                    f"(p.{node.page}, {node.font_size}pt)")
         if node.body:
             body_preview = node.body[:120].replace("\n", " / ")
-            print(f"{prefix}    body: {body_preview}")
+            _safe_print(f"{prefix}    body: {body_preview}")
         if node.children:
             pretty_print(node.children, indent + 1)
 
