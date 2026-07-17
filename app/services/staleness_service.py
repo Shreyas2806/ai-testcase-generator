@@ -72,6 +72,17 @@ def check_test_run_staleness(test_run_id: int, db: Session) -> dict:
         node_id = int(node_id_str)
         node = db.query(DBNode).filter(DBNode.id == node_id).first()
 
+        # Check if there is a version diff indicating this node was changed or deleted in a subsequent version
+        from app.models.node_diff import NodeDiff
+        diff = (
+            db.query(NodeDiff)
+            .filter(
+                NodeDiff.v1_node_id == node_id,
+                NodeDiff.status.in_(["changed", "deleted"]),
+            )
+            .first()
+        )
+
         if not node:
             # Case A: Node has been deleted from the database
             changed_nodes.append(
@@ -83,8 +94,24 @@ def check_test_run_staleness(test_run_id: int, db: Session) -> dict:
                     "reason": "deleted",
                 }
             )
+        elif diff:
+            # Case B: Node has been modified or deleted in a newer version
+            v2_hash = ""
+            if diff.status == "changed" and diff.v2_node_id:
+                v2_node = db.query(DBNode).filter(DBNode.id == diff.v2_node_id).first()
+                if v2_node:
+                    v2_hash = v2_node.content_hash or ""
+            changed_nodes.append(
+                {
+                    "node_id": node.id,
+                    "heading": node.heading,
+                    "stored_hash": stored_hash,
+                    "current_hash": None if diff.status == "deleted" else v2_hash,
+                    "reason": diff.status,
+                }
+            )
         elif (node.content_hash or "") != stored_hash:
-            # Case B: Content has been modified since generation
+            # Case C: Content has been modified since generation
             changed_nodes.append(
                 {
                     "node_id": node.id,
